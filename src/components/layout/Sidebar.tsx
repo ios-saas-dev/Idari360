@@ -32,6 +32,10 @@ const navItems = [
   { name: "Ayarlar", href: "/ayarlar", icon: Settings },
 ];
 
+const adminOnlyItems = [
+  { name: "Kullanıcı Yönetimi", href: "/kullanicilar", icon: Settings },
+];
+
 export function Sidebar() {
   const pathname = usePathname();
 
@@ -90,6 +94,22 @@ export function Sidebar() {
           <p className="text-[11px] text-cyan-400 font-medium">
             Süreç Platformu
           </p>
+        </div>
+      </div>
+      {/* Admin Only: Kullanıcı Yönetimi */}
+      <div className="px-3 pb-2">
+        <div className="border-t border-white/10 pt-2">
+          <Link
+            href="/kullanicilar"
+            className={`flex items-center gap-3.5 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
+              pathname === "/kullanicilar"
+                ? "bg-indigo-600 text-white shadow-md"
+                : "text-slate-400 hover:text-white hover:bg-white/5"
+            }`}
+          >
+            <Settings className="w-4 h-4" strokeWidth={2} />
+            <span>Kullanıcı Yönetimi</span>
+          </Link>
         </div>
       </div>
     </aside>
