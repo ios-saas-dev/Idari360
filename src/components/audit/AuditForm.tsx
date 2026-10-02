@@ -16,6 +16,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { AuditQuestion } from "@/lib/supabase/types";
 import { facilitiesList } from "@/lib/mock-data";
+import { submitAudit } from "@/lib/services/audits-service";
 
 interface AuditFormProps {
   title: string;
@@ -170,8 +171,25 @@ export function AuditForm({ title, category, questions, targetName = "Agora Şub
     doc.save(`Idari360_Denetim_${category}_${new Date().toISOString().slice(0, 10)}.pdf`);
   };
 
-  const handleSubmitAudit = () => {
+  const handleSubmitAudit = async () => {
     setIsSubmitted(true);
+    await submitAudit({
+      template_id: category === "servis" ? "b0000000-0000-0000-0000-000000000001" : category === "yemekhane" ? "b0000000-0000-0000-0000-000000000002" : "b0000000-0000-0000-0000-000000000003",
+      facility_id: selectedFacility,
+      total_score: earnedScore,
+      max_score: totalPossible,
+      percentage_score: percentage,
+      general_notes: notes,
+      answers: questions.map((q) => {
+        const a = answers[q.id];
+        return {
+          question_id: q.id,
+          is_compliant: Boolean(a?.isCompliant),
+          non_compliance_reason: a?.reason,
+          deadline: a?.deadline,
+        };
+      }),
+    });
   };
 
   return (

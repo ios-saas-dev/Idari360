@@ -14,6 +14,7 @@ import {
 import { operationsList, facilitiesList } from "@/lib/mock-data";
 import { Operation, OperationCategory, OperationPriority } from "@/lib/supabase/types";
 import { getCategoryBadgeColor } from "@/lib/utils";
+import { createOperation, updateOperationStatus } from "@/lib/services/operations-service";
 
 export default function TaleplerPage() {
   const [operations, setOperations] = useState<Operation[]>(operationsList);
@@ -29,20 +30,16 @@ export default function TaleplerPage() {
   const [newDescription, setNewDescription] = useState("");
   const [newDeadline, setNewDeadline] = useState("");
 
-  const handleCreateDemand = (e: React.FormEvent) => {
+  const handleCreateDemand = async (e: React.FormEvent) => {
     e.preventDefault();
-    const created: Operation = {
-      id: `op-${Date.now()}`,
+    const created = await createOperation({
       facility_id: newFacility,
-      operation_number: `TAL-2026-${Math.floor(1000 + Math.random() * 9000)}`,
       title: newTitle,
       category: newCategory,
       description: newDescription,
       priority: newPriority,
-      status: "yeni",
       deadline: newDeadline,
-      created_at: new Date().toISOString(),
-    };
+    });
 
     setOperations([created, ...operations]);
     setIsModalOpen(false);
@@ -50,10 +47,11 @@ export default function TaleplerPage() {
     setNewDescription("");
   };
 
-  const handleStatusChange = (id: string, newStatus: any) => {
+  const handleStatusChange = async (id: string, newStatus: any) => {
     setOperations(
       operations.map((op) => (op.id === id ? { ...op, status: newStatus } : op))
     );
+    await updateOperationStatus(id, newStatus);
   };
 
   const filtered = operations.filter((op) => {
