@@ -1,7 +1,8 @@
 "use client";
 
-import { Calendar, ChevronDown } from "lucide-react";
-import { currentUser, dashboardStats } from "@/lib/mock-data";
+import { useState, useEffect } from "react";
+import { Calendar, ChevronDown, Loader2 } from "lucide-react";
+import { currentUser } from "@/lib/mock-data";
 import { StatCards } from "@/components/dashboard/StatCards";
 import { DemandDistributionChart } from "@/components/dashboard/DemandDistributionChart";
 import { MonthlyTrendChart } from "@/components/dashboard/MonthlyTrendChart";
@@ -10,8 +11,27 @@ import { AnnouncementsCard } from "@/components/dashboard/AnnouncementsCard";
 import { CategoryBars } from "@/components/dashboard/CategoryBars";
 import { SatisfactionGauge } from "@/components/dashboard/SatisfactionGauge";
 import { BottomCategories } from "@/components/dashboard/BottomCategories";
+import { getDashboardStats } from "@/lib/services/dashboard-service";
 
 export default function DashboardPage() {
+  const [stats, setStats] = useState<any>(null);
+
+  useEffect(() => {
+    async function fetchStats() {
+      const data = await getDashboardStats();
+      setStats(data);
+    }
+    fetchStats();
+  }, []);
+
+  if (!stats) {
+    return (
+      <div className="flex h-[400px] items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 max-w-[1600px] mx-auto">
       {/* Welcome Greeting & Date Header */}
@@ -28,21 +48,21 @@ export default function DashboardPage() {
         {/* Date Filter Badge / Button */}
         <div className="flex items-center gap-2.5 px-4 py-2 bg-white rounded-xl border border-slate-200/80 shadow-sm text-xs font-semibold text-slate-700 cursor-pointer hover:bg-slate-50 transition w-fit">
           <Calendar className="w-4 h-4 text-slate-500" />
-          <span>{dashboardStats.dateDisplay}</span>
+          <span>{stats.dateDisplay}</span>
           <ChevronDown className="w-3.5 h-3.5 text-slate-400 ml-1" />
         </div>
       </div>
 
       {/* Row 1: 4 Key Metric Cards */}
-      <StatCards />
+      <StatCards stats={stats} />
 
       {/* Row 2: Distribution Chart, Monthly Trend, Quick Actions */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
         <div className="lg:col-span-4 min-h-[260px]">
-          <DemandDistributionChart />
+          <DemandDistributionChart stats={stats} />
         </div>
         <div className="lg:col-span-5 min-h-[260px]">
-          <MonthlyTrendChart />
+          <MonthlyTrendChart stats={stats} />
         </div>
         <div className="lg:col-span-3 min-h-[260px]">
           <QuickActions />
@@ -55,15 +75,16 @@ export default function DashboardPage() {
           <AnnouncementsCard />
         </div>
         <div className="lg:col-span-4 min-h-[270px]">
-          <CategoryBars />
+          <CategoryBars stats={stats} />
         </div>
         <div className="lg:col-span-3 min-h-[270px]">
-          <SatisfactionGauge />
+          <SatisfactionGauge stats={stats} />
         </div>
       </div>
 
       {/* Row 4: Bottom Categories Quick Grid */}
       <BottomCategories />
+
     </div>
   );
 }

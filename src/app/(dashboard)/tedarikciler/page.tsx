@@ -1,13 +1,32 @@
 "use client";
 
-import { useState } from "react";
-import { Award, Star, CheckCircle, AlertTriangle, Phone, Mail } from "lucide-react";
-import { suppliersList } from "@/lib/mock-data";
+import { useState, useEffect } from "react";
+import { Award, Star, CheckCircle, AlertTriangle, Phone, Mail, Loader2 } from "lucide-react";
 import { Supplier } from "@/lib/supabase/types";
+import { getSuppliers } from "@/lib/services/suppliers-service";
 
 export default function TedarikcilerPage() {
-  const [selectedSupplier, setSelectedSupplier] = useState<Supplier>(suppliersList[0]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
+  useEffect(() => {
+    async function fetchData() {
+      const data = await getSuppliers();
+      setSuppliers(data);
+      if (data.length > 0) setSelectedSupplier(data[0]);
+      setIsLoading(false);
+    }
+    fetchData();
+  }, []);
+
+  if (isLoading || !selectedSupplier) {
+    return (
+      <div className="flex h-[400px] items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
   return (
     <div className="space-y-6 max-w-[1600px] mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -29,7 +48,7 @@ export default function TedarikcilerPage() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Supplier List Cards */}
         <div className="lg:col-span-4 space-y-3">
-          {suppliersList.map((sup) => {
+          {suppliers.map((sup) => {
             const isSelected = selectedSupplier.id === sup.id;
             return (
               <div

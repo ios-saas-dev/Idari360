@@ -1,21 +1,23 @@
 "use client";
-
 import { ArrowUp } from "lucide-react";
-import { dashboardStats } from "@/lib/mock-data";
 
-interface SatisfactionGaugeProps {
-  score?: number;
-  maxScore?: number;
-  title?: string;
-  growth?: string;
-}
-
-export function SatisfactionGauge({
-  score = dashboardStats.satisfaction.score,
-  maxScore = dashboardStats.satisfaction.maxScore,
-  title = dashboardStats.satisfaction.title,
-  growth = dashboardStats.satisfaction.growth,
-}: SatisfactionGaugeProps) {
+export function SatisfactionGauge({ 
+  stats,
+  score: propScore,
+  maxScore: propMaxScore,
+  title: propTitle,
+  growth: propGrowth
+}: { 
+  stats?: any,
+  score?: number,
+  maxScore?: number,
+  title?: string,
+  growth?: string
+}) {
+  const score = propScore ?? (stats?.satisfaction?.score || 4.6);
+  const maxScore = propMaxScore ?? (stats?.satisfaction?.maxScore || 5);
+  const title = propTitle ?? (stats?.satisfaction?.title || "Memnuniyet Skoru");
+  const growth = propGrowth ?? (stats?.satisfaction?.growth || "%0.0");
   // Circular gauge math (75% circle arc)
   const radius = 42;
   const strokeWidth = 9;

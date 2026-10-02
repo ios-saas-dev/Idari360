@@ -1,14 +1,8 @@
 "use client";
 
-export function MonthlyTrendChart() {
-  const data = [
-    { month: "Oca", val: 20 },
-    { month: "Şub", val: 38 },
-    { month: "Mar", val: 44 },
-    { month: "Nis", val: 36 },
-    { month: "May", val: 56, tooltip: "Mayıs 56 Talep" },
-    { month: "Haz", val: 70 },
-  ];
+export function MonthlyTrendChart({ stats }: { stats: any }) {
+  // Use map to ensure variables like 'demands' match the internal 'val' logic
+  const data = stats.monthlyTrend.map((d: any) => ({ month: d.month, val: d.demands }));
 
   // SVG dimensions
   const width = 360;
@@ -18,8 +12,9 @@ export function MonthlyTrendChart() {
   const chartWidth = width - paddingX - 15;
   const chartHeight = height - paddingY * 2;
 
-  // Max value is 80 as in reference image
-  const maxVal = 80;
+  // Max value dynamically rounded up to nearest 10
+  const highest = Math.max(...data.map((d: any) => d.val), 10);
+  const maxVal = Math.ceil(highest / 10) * 10;
   const getX = (idx: number) => paddingX + (idx / (data.length - 1)) * chartWidth;
   const getY = (val: number) => height - paddingY - (val / maxVal) * chartHeight;
 
@@ -54,8 +49,8 @@ export function MonthlyTrendChart() {
             </linearGradient>
           </defs>
 
-          {/* Horizontal grid lines & Y labels (0, 20, 40, 60, 80) */}
-          {[0, 20, 40, 60, 80].map((level) => {
+          {/* Horizontal grid lines & Y labels */}
+          {[0, maxVal * 0.25, maxVal * 0.5, maxVal * 0.75, maxVal].map((level) => {
             const y = getY(level);
             return (
               <g key={level}>
@@ -73,7 +68,7 @@ export function MonthlyTrendChart() {
                   textAnchor="end"
                   className="text-[10px] fill-slate-400 font-medium select-none"
                 >
-                  {level}
+                  {Math.round(level)}
                 </text>
               </g>
             );
@@ -86,15 +81,15 @@ export function MonthlyTrendChart() {
           <path d={pathD} fill="none" stroke="#2563eb" strokeWidth="2.5" strokeLinecap="round" />
 
           {/* Data Points */}
-          {data.map((item, idx) => {
+          {data.map((item: any, idx: number) => {
             const cx = getX(idx);
             const cy = getY(item.val);
-            const isMay = item.month === "May";
+            const isLast = idx === data.length - 1;
 
             return (
               <g key={idx}>
                 {/* Outer halo for active point */}
-                {isMay && (
+                {isLast && (
                   <circle cx={cx} cy={cy} r="6" fill="#3b82f6" fillOpacity="0.3" />
                 )}
                 <circle
@@ -120,10 +115,10 @@ export function MonthlyTrendChart() {
             );
           })}
 
-          {/* Tooltip for May (as in reference image: "Mayıs 56 Talep") */}
-          <g transform={`translate(${getX(4) - 36}, ${getY(56) - 34})`}>
+          {/* Tooltip for the latest data point */}
+          <g transform={`translate(${getX(data.length - 1) - 50}, ${getY(data[data.length - 1].val) - 34})`}>
             <rect
-              width="72"
+              width="80"
               height="24"
               rx="6"
               fill="#ffffff"
@@ -131,12 +126,12 @@ export function MonthlyTrendChart() {
               filter="drop-shadow(0 2px 4px rgba(0,0,0,0.06))"
             />
             <text
-              x="36"
+              x="40"
               y="15"
               textAnchor="middle"
               className="text-[9px] font-bold fill-slate-800 tracking-tight"
             >
-              Mayıs 56 Talep
+              {data[data.length - 1].month} {data[data.length - 1].val} Talep
             </text>
           </g>
         </svg>

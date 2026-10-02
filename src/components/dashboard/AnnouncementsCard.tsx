@@ -1,13 +1,26 @@
 "use client";
 
 import Link from "next/link";
+import { useState, useEffect } from "react";
 import { Megaphone } from "lucide-react";
-import { announcements } from "@/lib/mock-data";
+import { Announcement } from "@/lib/supabase/types";
+import { getAnnouncements } from "@/lib/services/announcements-service";
 
 export function AnnouncementsCard() {
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+
+  useEffect(() => {
+    async function fetchAnns() {
+      const data = await getAnnouncements();
+      setAnnouncements(data.slice(0, 3)); // Sadece son 3 duyuru
+    }
+    fetchAnns();
+  }, []);
+
   return (
     <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.03)] h-full flex flex-col justify-between">
       <div>
+
         <div className="flex items-center gap-2 mb-4">
           <Megaphone className="w-4 h-4 text-slate-700" />
           <h3 className="text-xs font-bold text-slate-800 tracking-tight">

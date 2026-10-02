@@ -1,36 +1,35 @@
 import { ClipboardList, Hourglass, CheckCircle2, UserCheck } from "lucide-react";
-import { dashboardStats } from "@/lib/mock-data";
 
-export function StatCards() {
+export function StatCards({ stats }: { stats: any }) {
   const cards = [
     {
       title: "Açık Talepler",
-      count: dashboardStats.openDemands.count,
-      subtext: dashboardStats.openDemands.subtext,
+      count: stats.openDemands.count,
+      subtext: stats.openDemands.subtext,
       icon: ClipboardList,
       iconColor: "text-blue-500",
       bgColor: "bg-blue-50",
     },
     {
       title: "Devam Eden İşler",
-      count: dashboardStats.inProgress.count,
-      subtext: dashboardStats.inProgress.subtext,
+      count: stats.inProgress.count,
+      subtext: stats.inProgress.subtext,
       icon: Hourglass,
       iconColor: "text-amber-500",
       bgColor: "bg-amber-50",
     },
     {
       title: "Tamamlanan İşler",
-      count: dashboardStats.completed.count,
-      subtext: dashboardStats.completed.subtext,
+      count: stats.completed.count,
+      subtext: stats.completed.subtext,
       icon: CheckCircle2,
       iconColor: "text-emerald-500",
       bgColor: "bg-emerald-50",
     },
     {
       title: "Bekleyen Onaylar",
-      count: dashboardStats.pendingApprovals.count,
-      subtext: dashboardStats.pendingApprovals.subtext,
+      count: stats.pendingApprovals.count,
+      subtext: stats.pendingApprovals.subtext,
       icon: UserCheck,
       iconColor: "text-purple-500",
       bgColor: "bg-purple-50",

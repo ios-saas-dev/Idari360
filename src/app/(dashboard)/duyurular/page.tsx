@@ -1,25 +1,32 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Megaphone, Plus, Calendar, Bell } from "lucide-react";
-import { announcements } from "@/lib/mock-data";
 import { Announcement } from "@/lib/supabase/types";
+import { getAnnouncements, createAnnouncement } from "@/lib/services/announcements-service";
 
 export default function DuyurularPage() {
-  const [list, setList] = useState<Announcement[]>(announcements);
+  const [list, setList] = useState<Announcement[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
 
-  const handleCreateAnnouncement = (e: React.FormEvent) => {
+  useEffect(() => {
+    async function fetchAnnouncements() {
+      const data = await getAnnouncements();
+      setList(data);
+      setIsLoading(false);
+    }
+    fetchAnnouncements();
+  }, []);
+
+  const handleCreateAnnouncement = async (e: React.FormEvent) => {
     e.preventDefault();
-    const item: Announcement = {
-      id: `ann-${Date.now()}`,
-      title,
-      content,
-      date: new Date().toLocaleDateString("tr-TR"),
-    };
-    setList([item, ...list]);
+    const newItem = await createAnnouncement(title, content);
+    if (newItem) {
+      setList([newItem, ...list]);
+    }
     setIsModalOpen(false);
     setTitle("");
     setContent("");
@@ -27,6 +34,7 @@ export default function DuyurularPage() {
 
   return (
     <div className="space-y-6 max-w-[1200px] mx-auto">
+
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">

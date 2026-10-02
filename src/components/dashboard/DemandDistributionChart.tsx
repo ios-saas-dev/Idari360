@@ -1,10 +1,8 @@
 "use client";
 
-import { dashboardStats } from "@/lib/mock-data";
-
-export function DemandDistributionChart() {
-  const items = dashboardStats.statusDistribution;
-  const total = items.reduce((acc, curr) => acc + curr.value, 0);
+export function DemandDistributionChart({ stats }: { stats: any }) {
+  const items = stats.statusDistribution;
+  const total = items.reduce((acc: any, curr: any) => acc + curr.value, 0);
 
   // Calculate SVG stroke dashes for donut segments
   let accumulatedAngle = 0;
@@ -22,7 +20,7 @@ export function DemandDistributionChart() {
         {/* SVG Donut Chart */}
         <div className="relative w-40 h-40 flex items-center justify-center shrink-0">
           <svg className="w-full h-full -rotate-90" viewBox="0 0 160 160">
-            {items.map((item, idx) => {
+            {items.map((item: any, idx: number) => {
               const strokeDasharray = `${(item.value / total) * circumference} ${circumference}`;
               const strokeDashoffset = -accumulatedAngle;
               accumulatedAngle += (item.value / total) * circumference;
@@ -47,13 +45,13 @@ export function DemandDistributionChart() {
           {/* Center text inside Donut */}
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center">
             <span className="text-[11px] font-medium text-slate-400">Toplam</span>
-            <span className="text-2xl font-black text-slate-900 leading-tight">32</span>
+            <span className="text-2xl font-black text-slate-900 leading-tight">{total}</span>
           </div>
         </div>
 
         {/* Legend List */}
         <div className="flex-1 space-y-2 text-xs">
-          {items.map((item, idx) => (
+          {items.map((item: any, idx: number) => (
             <div key={idx} className="flex items-center justify-between text-slate-600">
               <div className="flex items-center gap-2">
                 <span

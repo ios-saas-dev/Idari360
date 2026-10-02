@@ -1,10 +1,8 @@
 "use client";
 
-import { dashboardStats } from "@/lib/mock-data";
-
-export function CategoryBars() {
-  const items = dashboardStats.categoryRanking;
-  const maxVal = Math.max(...items.map((i) => i.count));
+export function CategoryBars({ stats }: { stats: any }) {
+  const items = stats.categoryRanking;
+  const maxVal = Math.max(...items.map((i: any) => i.count));
 
   return (
     <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.03)] h-full flex flex-col justify-between">
@@ -13,7 +11,7 @@ export function CategoryBars() {
       </h3>
 
       <div className="space-y-3.5 my-auto">
-        {items.map((item, idx) => {
+        {items.map((item: any, idx: number) => {
           const widthPercent = (item.count / maxVal) * 100;
 
           return (
