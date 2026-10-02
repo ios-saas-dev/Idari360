@@ -442,7 +442,7 @@ export default function TaleplerPage() {
           <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100">
               <div>
-                <h3 className="text-base font-bold text-slate-900">Yeni İdari Talep Oluştur</h3>
+                <h3 className="text-base font-bold text-slate-900">Talep Oluştur</h3>
                 <p className="text-[11px] text-slate-400 mt-0.5">Talep otomatik numara alarak sisteme kaydedilir.</p>
               </div>
               <button
@@ -480,22 +480,6 @@ export default function TaleplerPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Şube / Tesis *</label>
-                  <select
-                    required
-                    value={form.facility_id}
-                    onChange={(e) => setForm({ ...form, facility_id: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none"
-                  >
-                    {facilities.map((f) => (
-                      <option key={f.id} value={f.id}>{f.name}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Öncelik</label>
                   <select
                     value={form.priority}
@@ -507,15 +491,6 @@ export default function TaleplerPage() {
                     <option value="yuksek">Yüksek</option>
                     <option value="acil">⚠️ Acil</option>
                   </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Termin Tarihi</label>
-                  <input
-                    type="date"
-                    value={form.deadline}
-                    onChange={(e) => setForm({ ...form, deadline: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none"
-                  />
                 </div>
               </div>
 
