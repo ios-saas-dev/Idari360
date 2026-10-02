@@ -7,6 +7,7 @@ import {
   CheckCircle2, AlertCircle, Clock, ArrowRight
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import Link from "next/link";
 
 type AuthStep = "form" | "verify_email" | "pending_approval" | "rejected";
 
@@ -280,7 +281,7 @@ export default function LoginPage() {
               <input type="checkbox" defaultChecked className="rounded border-slate-300" />
               Beni Hatırla
             </label>
-            <a href="#" className="text-blue-600 hover:underline font-medium">Şifremi Unuttum?</a>
+            <Link href="/sifremi-unuttum" className="text-blue-600 hover:underline font-medium">Şifremi Unuttum?</Link>
           </div>
         )}
 
