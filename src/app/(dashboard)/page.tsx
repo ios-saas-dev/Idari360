@@ -11,6 +11,7 @@ import { AnnouncementsCard } from "@/components/dashboard/AnnouncementsCard";
 import { CategoryBars } from "@/components/dashboard/CategoryBars";
 import { SatisfactionGauge } from "@/components/dashboard/SatisfactionGauge";
 import { BottomCategories } from "@/components/dashboard/BottomCategories";
+import SmartInsights from "@/components/dashboard/SmartInsights";
 import { getDashboardStats } from "@/lib/services/dashboard-service";
 
 export default function DashboardPage() {
@@ -82,7 +83,10 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Row 4: Bottom Categories Quick Grid */}
+      {/* Row 4: Smart AI Insights */}
+      <SmartInsights />
+
+      {/* Row 5: Bottom Categories Quick Grid */}
       <BottomCategories />
 
     </div>
