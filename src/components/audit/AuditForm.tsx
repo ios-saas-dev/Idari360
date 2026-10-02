@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   CheckCircle2,
   XCircle,
@@ -11,18 +11,22 @@ import {
   Send,
   Building,
   Check,
+  RefreshCw,
 } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { AuditQuestion } from "@/lib/supabase/types";
-import { facilitiesList } from "@/lib/mock-data";
+import { AuditQuestion, Facility, Vehicle } from "@/lib/supabase/types";
+import { getFacilities } from "@/lib/services/facilities-service";
+import { getVehicles } from "@/lib/services/vehicles-service";
 import { submitAudit } from "@/lib/services/audits-service";
 
 interface AuditFormProps {
   title: string;
-  category: "servis" | "yemekhane" | "temizlik";
+  category: "servis" | "yemekhane" | "yemekhane_tasima" | "temizlik";
   questions: AuditQuestion[];
-  targetName?: string; // Araç plakası veya Şube adı
+  templateId?: string;
+  defaultTargetName?: string;
+  vehicleId?: string;
 }
 
 interface QuestionAnswerState {
@@ -32,36 +36,71 @@ interface QuestionAnswerState {
   photoUploaded: boolean;
 }
 
-export function AuditForm({ title, category, questions, targetName = "Agora Şubesi" }: AuditFormProps) {
-  const [selectedFacility, setSelectedFacility] = useState(facilitiesList[0].id);
-  const [generalPhoto, setGeneralPhoto] = useState<boolean>(true);
+export function AuditForm({
+  title,
+  category,
+  questions,
+  templateId,
+  defaultTargetName = "Agora Şubesi",
+  vehicleId,
+}: AuditFormProps) {
+  const [facilities, setFacilities] = useState<Facility[]>([]);
+  const [selectedFacility, setSelectedFacility] = useState<string>("");
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [selectedVehicle, setSelectedVehicle] = useState<string>(vehicleId || "");
   const [notes, setNotes] = useState("");
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Group questions by category_section
   const groupedSections = questions.reduce((acc, q) => {
-    if (!acc[q.category_section]) {
-      acc[q.category_section] = [];
+    const sec = q.category_section || "Genel Kriterler";
+    if (!acc[sec]) {
+      acc[sec] = [];
     }
-    acc[q.category_section].push(q);
+    acc[sec].push(q);
     return acc;
   }, {} as Record<string, AuditQuestion[]>);
 
-  // Initialize answer states (defaulting to true for demo speed)
-  const [answers, setAnswers] = useState<Record<string, QuestionAnswerState>>(() => {
+  // Initialize answer states
+  const [answers, setAnswers] = useState<Record<string, QuestionAnswerState>>({});
+
+  useEffect(() => {
     const init: Record<string, QuestionAnswerState> = {};
-    questions.forEach((q, idx) => {
-      // Demo ease: mark one question as non-compliant to demonstrate deadline & action logic
-      const isIssue = idx === 3;
+    questions.forEach((q) => {
       init[q.id] = {
-        isCompliant: !isIssue,
-        reason: isIssue ? "Klima filtresi kirli ve yeterli soğutma yapmıyor." : "",
-        deadline: isIssue ? "2026-06-05" : "",
-        photoUploaded: isIssue,
+        isCompliant: true,
+        reason: "",
+        deadline: "",
+        photoUploaded: false,
       };
     });
-    return init;
-  });
+    setAnswers(init);
+  }, [questions]);
+
+  // Load facilities & vehicles
+  useEffect(() => {
+    async function loadMetadata() {
+      try {
+        const facs = await getFacilities();
+        setFacilities(facs);
+        if (facs.length > 0 && !selectedFacility) {
+          setSelectedFacility(facs[0].id);
+        }
+
+        if (category === "servis") {
+          const vehs = await getVehicles("servis");
+          setVehicles(vehs);
+          if (vehs.length > 0 && !selectedVehicle) {
+            setSelectedVehicle(vehs[0].id);
+          }
+        }
+      } catch (err) {
+        console.error("Metadata load error in AuditForm:", err);
+      }
+    }
+    loadMetadata();
+  }, [category, selectedFacility, selectedVehicle]);
 
   const handleToggleCompliance = (qId: string, value: boolean) => {
     setAnswers((prev) => ({
@@ -95,15 +134,21 @@ export function AuditForm({ title, category, questions, targetName = "Agora Şub
   };
 
   // Calculate live score
-  const totalPossible = questions.reduce((acc, q) => acc + q.points, 0);
+  const totalPossible = questions.reduce((acc, q) => acc + (q.points || 2), 0);
   const earnedScore = questions.reduce((acc, q) => {
     const ans = answers[q.id];
-    return ans?.isCompliant ? acc + q.points : acc;
+    return ans?.isCompliant ? acc + (q.points || 2) : acc;
   }, 0);
 
-  const percentage = Math.round((earnedScore / totalPossible) * 100);
-
+  const percentage = totalPossible > 0 ? Math.round((earnedScore / totalPossible) * 100) : 100;
   const nonCompliantItems = questions.filter((q) => answers[q.id]?.isCompliant === false);
+
+  const targetFacilityName =
+    facilities.find((f) => f.id === selectedFacility)?.name || defaultTargetName;
+  const targetVehiclePlate =
+    category === "servis" && selectedVehicle
+      ? vehicles.find((v) => v.id === selectedVehicle)?.plate
+      : null;
 
   // PDF Export using jsPDF and autoTable
   const generatePdfReport = () => {
@@ -112,13 +157,17 @@ export function AuditForm({ title, category, questions, targetName = "Agora Şub
     // Header
     doc.setFontSize(18);
     doc.setTextColor(37, 99, 235);
-    doc.text("İdari 360 — Dijital Denetim Raporu", 14, 20);
+    doc.text("İdari 360 — Resmi Denetim Raporu", 14, 20);
 
     doc.setFontSize(11);
     doc.setTextColor(100, 116, 139);
     doc.text(`Denetim: ${title}`, 14, 28);
-    doc.text(`Tesis / Lokasyon: ${targetName} | Tarih: 30 Mayıs 2026`, 14, 34);
-    doc.text(`Denetçi: Mehmet Yılmaz (İdari İşler Yöneticisi)`, 14, 40);
+    doc.text(
+      `Tesis / Lokasyon: ${targetFacilityName} ${targetVehiclePlate ? `(Araç: ${targetVehiclePlate})` : ""} | Tarih: ${new Date().toLocaleDateString("tr-TR")}`,
+      14,
+      34
+    );
+    doc.text(`Denetçi: İdari İşler Yetkilisi`, 14, 40);
 
     // Score Banner
     doc.setFillColor(percentage >= 85 ? 240 : 254, percentage >= 85 ? 253 : 242, percentage >= 85 ? 244 : 242);
@@ -145,7 +194,7 @@ export function AuditForm({ title, category, questions, targetName = "Agora Şub
         (idx + 1).toString(),
         q.category_section,
         q.question_text,
-        `${q.points}p`,
+        `${q.points || 2}p`,
         statusText,
         detail,
       ];
@@ -158,38 +207,40 @@ export function AuditForm({ title, category, questions, targetName = "Agora Şub
       theme: "grid",
       headStyles: { fillColor: [37, 99, 235], textColor: 255, fontSize: 8 },
       bodyStyles: { fontSize: 7.5, cellPadding: 2 },
-      columnStyles: {
-        0: { cellWidth: 8 },
-        1: { cellWidth: 28 },
-        2: { cellWidth: 65 },
-        3: { cellWidth: 12 },
-        4: { cellWidth: 24 },
-        5: { cellWidth: 45 },
-      },
     });
 
     doc.save(`Idari360_Denetim_${category}_${new Date().toISOString().slice(0, 10)}.pdf`);
   };
 
   const handleSubmitAudit = async () => {
-    setIsSubmitted(true);
-    await submitAudit({
-      template_id: category === "servis" ? "b0000000-0000-0000-0000-000000000001" : category === "yemekhane" ? "b0000000-0000-0000-0000-000000000002" : "b0000000-0000-0000-0000-000000000003",
-      facility_id: selectedFacility,
-      total_score: earnedScore,
-      max_score: totalPossible,
-      percentage_score: percentage,
-      general_notes: notes,
-      answers: questions.map((q) => {
-        const a = answers[q.id];
-        return {
-          question_id: q.id,
-          is_compliant: Boolean(a?.isCompliant),
-          non_compliance_reason: a?.reason,
-          deadline: a?.deadline,
-        };
-      }),
-    });
+    setIsSubmitting(true);
+    try {
+      await submitAudit({
+        template_id: templateId || `b0000000-0000-0000-0000-000000000001`,
+        facility_id: selectedFacility || facilities[0]?.id || "a0000000-0000-0000-0000-000000000001",
+        vehicle_id: category === "servis" ? selectedVehicle || undefined : undefined,
+        total_score: earnedScore,
+        max_score: totalPossible,
+        percentage_score: percentage,
+        general_notes: notes,
+        answers: questions.map((q) => {
+          const a = answers[q.id];
+          return {
+            question_id: q.id,
+            is_compliant: Boolean(a?.isCompliant),
+            non_compliance_reason: a?.reason,
+            deadline: a?.deadline,
+          };
+        }),
+      });
+
+      setIsSubmitted(true);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (err: any) {
+      alert("Denetim kaydedilirken hata oluştu: " + (err?.message || ""));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -198,19 +249,42 @@ export function AuditForm({ title, category, questions, targetName = "Agora Şub
       <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6 sticky top-24 z-20 backdrop-blur-md bg-white/95">
         <div>
           <span className="text-[11px] font-bold text-blue-600 uppercase tracking-wider">
-            {category.toUpperCase()} KONTROL MERKEZİ
+            {category.toUpperCase()} DENETİM MERKEZİ (CANLI VERİTABANI)
           </span>
           <h2 className="text-xl font-black text-slate-900 mt-0.5">{title}</h2>
-          <div className="flex items-center gap-3 text-xs text-slate-500 mt-1">
-            <span className="flex items-center gap-1">
+          <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 mt-2">
+            <div className="flex items-center gap-1.5">
               <Building className="w-3.5 h-3.5 text-slate-400" />
-              {targetName}
-            </span>
-            <span>•</span>
-            <span className="flex items-center gap-1">
-              <Calendar className="w-3.5 h-3.5 text-slate-400" />
-              30 Mayıs 2026
-            </span>
+              <select
+                value={selectedFacility}
+                onChange={(e) => setSelectedFacility(e.target.value)}
+                className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 font-bold text-slate-800 text-xs"
+              >
+                {facilities.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.name} ({f.code})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {category === "servis" && vehicles.length > 0 && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-slate-400">•</span>
+                <span className="font-semibold text-slate-600">Araç:</span>
+                <select
+                  value={selectedVehicle}
+                  onChange={(e) => setSelectedVehicle(e.target.value)}
+                  className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 font-mono font-bold text-blue-600 text-xs"
+                >
+                  {vehicles.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.plate} — {v.driver_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
         </div>
 
@@ -243,10 +317,11 @@ export function AuditForm({ title, category, questions, targetName = "Agora Şub
 
             <button
               onClick={handleSubmitAudit}
-              className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/20 transition"
+              disabled={isSubmitting || isSubmitted}
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/20 transition disabled:opacity-50"
             >
               <Send className="w-4 h-4" />
-              Denetimi Tamamla
+              {isSubmitting ? "Kaydediliyor..." : isSubmitted ? "Kaydedildi ✓" : "Denetimi Onayla & Kaydet"}
             </button>
           </div>
         </div>
@@ -257,7 +332,7 @@ export function AuditForm({ title, category, questions, targetName = "Agora Şub
         <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5 text-emerald-900 flex items-start gap-4">
           <CheckCircle2 className="w-6 h-6 text-emerald-600 shrink-0 mt-0.5" />
           <div className="text-xs space-y-1">
-            <div className="font-bold text-sm">Denetim Başarıyla Kaydedildi!</div>
+            <div className="font-bold text-sm">Denetim Başarıyla Supabase Veritabanına Kaydedildi!</div>
             <p>
               Denetim sonucu <strong>{earnedScore} / {totalPossible} (%{percentage})</strong> olarak veritabanına işlendi.
             </p>
@@ -270,7 +345,7 @@ export function AuditForm({ title, category, questions, targetName = "Agora Şub
         </div>
       )}
 
-      {/* General Inspection Photo Upload (Zorunlu) */}
+      {/* General Inspection Photo Upload */}
       <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex items-center justify-between">
         <div>
           <h4 className="text-xs font-bold text-slate-900">Genel Saha / Görünüm Fotoğrafı</h4>
@@ -292,7 +367,7 @@ export function AuditForm({ title, category, questions, targetName = "Agora Şub
       {/* Questions Section by Section */}
       <div className="space-y-6">
         {Object.entries(groupedSections).map(([sectionTitle, sectionQuestions]) => {
-          const sectionPoints = sectionQuestions.reduce((a, b) => a + b.points, 0);
+          const sectionPoints = sectionQuestions.reduce((a, b) => a + (b.points || 2), 0);
 
           return (
             <div
@@ -320,21 +395,20 @@ export function AuditForm({ title, category, questions, targetName = "Agora Şub
                   };
 
                   return (
-                    <div key={q.id} className="p-5 hover:bg-slate-50/30 transition">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        {/* Question Text */}
-                        <div className="flex items-start gap-3">
-                          <span className="w-5 h-5 rounded-full bg-slate-100 text-slate-600 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
-                            {idx + 1}
-                          </span>
-                          <div>
-                            <p className="text-xs font-bold text-slate-900 leading-snug">
-                              {q.question_text}
-                            </p>
-                            <span className="text-[10px] text-slate-400 font-medium">
-                              Değer: {q.points} Puan
+                    <div key={q.id} className="p-6 transition hover:bg-slate-50/40">
+                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                        <div className="space-y-1.5 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-mono font-bold text-slate-400">
+                              #{idx + 1}
+                            </span>
+                            <span className="text-xs font-bold px-2 py-0.5 bg-slate-100 text-slate-600 rounded">
+                              {q.points || 2} Puan
                             </span>
                           </div>
+                          <p className="text-xs font-semibold text-slate-900 leading-relaxed">
+                            {q.question_text}
+                          </p>
                         </div>
 
                         {/* EVET / HAYIR Toggle Buttons */}
@@ -367,12 +441,12 @@ export function AuditForm({ title, category, questions, targetName = "Agora Şub
                         </div>
                       </div>
 
-                      {/* NON-COMPLIANCE WORKFLOW (Hayır seçildiğinde açılan zorunlu açıklama ve deadline) */}
+                      {/* NON-COMPLIANCE WORKFLOW */}
                       {currentAns.isCompliant === false && (
                         <div className="mt-4 p-4 bg-red-50/50 border border-red-100 rounded-xl space-y-3 animate-fadeIn">
                           <div className="flex items-center gap-1.5 text-xs font-bold text-red-700">
                             <AlertTriangle className="w-4 h-4 text-red-600" />
-                            Uygunsuzluk Tespiti & Düzeltici Aksiyon Girişi
+                            Uygunsuzluk Tespiti & Düzeltici Aksiyon Girişi (Excel Kuralı)
                           </div>
 
                           <div className="grid grid-cols-1 md:grid-cols-12 gap-3 text-xs">

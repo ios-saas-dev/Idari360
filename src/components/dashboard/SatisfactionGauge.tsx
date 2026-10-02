@@ -3,24 +3,34 @@
 import { ArrowUp } from "lucide-react";
 import { dashboardStats } from "@/lib/mock-data";
 
-export function SatisfactionGauge() {
-  const { score, maxScore, title, growth } = dashboardStats.satisfaction;
+interface SatisfactionGaugeProps {
+  score?: number;
+  maxScore?: number;
+  title?: string;
+  growth?: string;
+}
 
+export function SatisfactionGauge({
+  score = dashboardStats.satisfaction.score,
+  maxScore = dashboardStats.satisfaction.maxScore,
+  title = dashboardStats.satisfaction.title,
+  growth = dashboardStats.satisfaction.growth,
+}: SatisfactionGaugeProps) {
   // Circular gauge math (75% circle arc)
   const radius = 42;
   const strokeWidth = 9;
   const circumference = 2 * Math.PI * radius;
   // Use 270 degree arc for gauge look
   const totalArc = circumference * 0.75;
-  const progressArc = (score / maxScore) * totalArc;
+  const progressArc = Math.min(totalArc, (score / maxScore) * totalArc);
 
   return (
-    <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.03)] h-full flex flex-col justify-between text-center">
+    <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm h-full flex flex-col justify-between text-center">
       <h3 className="text-xs font-bold text-slate-800 tracking-tight text-left">
-        Memnuniyet Skoru
+        Yemekhane Memnuniyet Skoru
       </h3>
 
-      <div className="flex flex-col items-center justify-center my-auto">
+      <div className="flex flex-col items-center justify-center my-auto py-2">
         {/* Semi-circular gauge */}
         <div className="relative w-28 h-28 flex items-center justify-center">
           <svg className="w-full h-full -rotate-[135deg]" viewBox="0 0 100 100">

@@ -6,7 +6,7 @@ import { getAuditTemplateAndQuestions } from "@/lib/services/audits-service";
 import { AuditQuestion } from "@/lib/supabase/types";
 import { RefreshCw } from "lucide-react";
 
-export default function ServisDenetimiPage() {
+export default function YemekhaneTasimaDenetimiPage() {
   const [questions, setQuestions] = useState<AuditQuestion[]>([]);
   const [template, setTemplate] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -14,11 +14,11 @@ export default function ServisDenetimiPage() {
   useEffect(() => {
     async function load() {
       try {
-        const { template, questions } = await getAuditTemplateAndQuestions("servis");
+        const { template, questions } = await getAuditTemplateAndQuestions("yemekhane_tasima");
         setTemplate(template);
         setQuestions(questions);
       } catch (err) {
-        console.error("Servis audit questions load error:", err);
+        console.error("Yemekhane tasima questions load error:", err);
       } finally {
         setLoading(false);
       }
@@ -30,7 +30,7 @@ export default function ServisDenetimiPage() {
     return (
       <div className="bg-white rounded-3xl p-12 text-center text-slate-500 font-medium border border-slate-100">
         <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-600" />
-        Servis denetim soruları canlı Supabase veritabanından yükleniyor...
+        Taşıma yemek denetim soruları canlı Supabase veritabanından yükleniyor...
       </div>
     );
   }
@@ -38,11 +38,11 @@ export default function ServisDenetimiPage() {
   return (
     <div className="space-y-6">
       <AuditForm
-        title={template?.title || "Servis Aracı Standart & Güvenlik Denetimi"}
-        category="servis"
+        title={template?.title || "Yemekhane Taşıma Yemek Hizmeti Denetimi (100 Puan)"}
+        category="yemekhane_tasima"
         questions={questions}
         templateId={template?.id}
-        defaultTargetName="Agora Şubesi Servis Güzergahı"
+        defaultTargetName="Şube Taşıma Yemek Dağıtım Alanı"
       />
     </div>
   );
