@@ -2,53 +2,203 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Shield, Lock, Mail, CheckCircle2, AlertCircle } from "lucide-react";
-import { UserRole } from "@/lib/supabase/types";
+import { Shield, Lock, Mail, CheckCircle2, AlertCircle, User, Briefcase, Loader2 } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("mehmet.yilmaz@idari360.com");
-  const [password, setPassword] = useState("password123");
-  const [selectedRole, setSelectedRole] = useState<UserRole>("facility_admin");
+  const [isLogin, setIsLogin] = useState(true);
+  
+  // Form States
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [role, setRole] = useState("facility_admin");
+  
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
 
-  const handleLogin = (e: React.FormEvent) => {
+  const supabase = createClient();
+
+  const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setErrorMsg("");
+    setSuccessMsg("");
 
-    // Set role cookie for middleware & state
-    document.cookie = `idari360_user_role=${selectedRole}; path=/; max-age=86400`;
+    try {
+      if (isLogin) {
+        // GİRİŞ YAP
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
 
-    setTimeout(() => {
-      setLoading(false);
-      if (selectedRole === "staff") {
-        router.push("/yetkisiz-erisim");
+        if (error) throw new Error("Giriş başarısız: " + error.message);
+
+        // Rolü almak için profiles tablosuna bak
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", data.user.id)
+          .single();
+
+        const userRole = profile?.role || "facility_admin";
+        
+        // Middleware için çerez ayarla
+        document.cookie = `idari360_user_role=${userRole}; path=/; max-age=86400`;
+
+        if (userRole === "staff") {
+          router.push("/yetkisiz-erisim");
+        } else {
+          router.push("/");
+        }
       } else {
-        router.push("/");
+        // KAYIT OL
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              full_name: fullName,
+              role: role,
+            }
+          }
+        });
+
+        if (error) throw new Error("Kayıt başarısız: " + error.message);
+
+        // Yeni profil oluştur (Eğer RLS izin veriyorsa, veya anon trigger ile yapıldıysa)
+        if (data.user) {
+          const { error: profileError } = await supabase.from("profiles").upsert({
+            id: data.user.id,
+            email: email,
+            full_name: fullName,
+            role: role,
+            is_active: true
+          }, { onConflict: 'id' });
+          
+          if (profileError) {
+             console.log("Profil otomatik oluşturulamadı (RLS kapalı/Trigger devre dışı olabilir):", profileError);
+          }
+        }
+
+        setSuccessMsg("Kayıt başarılı! Yönlendiriliyorsunuz...");
+        document.cookie = `idari360_user_role=${role}; path=/; max-age=86400`;
+
+        setTimeout(() => {
+          if (role === "staff") {
+            router.push("/yetkisiz-erisim");
+          } else {
+            router.push("/");
+          }
+        }, 1500);
       }
-    }, 400);
+    } catch (err: any) {
+      setErrorMsg(err.message || "Bir hata oluştu.");
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl p-8 border border-white/20">
-        {/* Logo */}
-        <div className="flex items-center justify-center gap-3 mb-8">
-          <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/30">
-            <Shield className="w-7 h-7 text-white" />
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 flex items-center justify-center p-4">
+      {/* Decorative background effects */}
+      <div className="absolute top-0 right-0 -mr-32 -mt-32 w-[500px] h-[500px] bg-blue-600 rounded-full mix-blend-multiply filter blur-[100px] opacity-20 animate-pulse"></div>
+      <div className="absolute bottom-0 left-0 -ml-32 -mb-32 w-[500px] h-[500px] bg-indigo-600 rounded-full mix-blend-multiply filter blur-[100px] opacity-20 animate-pulse" style={{ animationDelay: '2s' }}></div>
+      
+      <div className="max-w-md w-full bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl p-8 border border-white/20 relative z-10">
+        
+        {/* Header */}
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-2xl shadow-lg shadow-blue-500/30 mb-4">
+            <Shield className="w-8 h-8 text-white" />
           </div>
-          <div>
-            <h1 className="text-2xl font-black tracking-tight text-slate-900">
-              İdari<span className="text-blue-600">360</span>
-            </h1>
-            <p className="text-xs text-slate-500 font-medium">İdari İşler Yönetim Süreç Platformu</p>
-          </div>
+          <h1 className="text-2xl font-black tracking-tight text-slate-900">
+            İdari<span className="text-blue-600">360</span>
+          </h1>
+          <p className="text-xs text-slate-500 font-medium mt-1">İdari İşler Yönetim Süreç Platformu</p>
         </div>
 
-        <form onSubmit={handleLogin} className="space-y-4">
+        {/* Tab Toggle */}
+        <div className="flex bg-slate-100 p-1 rounded-xl mb-6">
+          <button
+            type="button"
+            onClick={() => { setIsLogin(true); setErrorMsg(""); }}
+            className={`flex-1 text-sm font-semibold py-2 rounded-lg transition-all ${
+              isLogin ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            Giriş Yap
+          </button>
+          <button
+            type="button"
+            onClick={() => { setIsLogin(false); setErrorMsg(""); }}
+            className={`flex-1 text-sm font-semibold py-2 rounded-lg transition-all ${
+              !isLogin ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            Kayıt Ol
+          </button>
+        </div>
+
+        {errorMsg && (
+          <div className="mb-4 p-3 bg-red-50 text-red-600 text-xs font-semibold rounded-lg flex items-center gap-2 border border-red-100">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{errorMsg}</span>
+          </div>
+        )}
+
+        {successMsg && (
+          <div className="mb-4 p-3 bg-emerald-50 text-emerald-600 text-xs font-semibold rounded-lg flex items-center gap-2 border border-emerald-100">
+            <CheckCircle2 className="w-4 h-4 shrink-0" />
+            <span>{successMsg}</span>
+          </div>
+        )}
+
+        <form onSubmit={handleAuth} className="space-y-4">
+          
+          {/* Sadece Kayıt modunda gösterilen alanlar */}
+          {!isLogin && (
+            <>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider">Ad Soyad</label>
+                <div className="relative">
+                  <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                  <input
+                    type="text"
+                    required={!isLogin}
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="Adınız Soyadınız"
+                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider">Sistem Rolü</label>
+                <div className="relative">
+                  <Briefcase className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                  <select
+                    value={role}
+                    onChange={(e) => setRole(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition appearance-none cursor-pointer"
+                  >
+                    <option value="facility_admin">Yönetici (Tüm Yetkiler)</option>
+                    <option value="facility_specialist">Uzman (Kendi Tesisi + Rapor)</option>
+                    <option value="facility_supervisor">Sorumlu (Sadece İşlemler)</option>
+                    <option value="staff">Personel (Sadece Mobil)</option>
+                  </select>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Ortak Alanlar (Email & Password) */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-              E-posta veya Kullanıcı Adı
+            <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider">
+              E-posta Adresi
             </label>
             <div className="relative">
               <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
@@ -64,7 +214,7 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+            <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider">
               Şifre
             </label>
             <div className="relative">
@@ -80,98 +230,35 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {/* Quick Role Tester / Switcher for Pair-Programming & Demo */}
-          <div className="pt-2">
-            <label className="block text-xs font-semibold text-slate-700 mb-2">
-              Sisteme Giriş Yapılacak Rol:
-            </label>
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <button
-                type="button"
-                onClick={() => setSelectedRole("facility_admin")}
-                className={`p-2.5 rounded-xl border text-left flex items-start gap-2 transition ${
-                  selectedRole === "facility_admin"
-                    ? "bg-blue-50 border-blue-600 text-blue-900 font-semibold"
-                    : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
-                }`}
-              >
-                <CheckCircle2 className={`w-3.5 h-3.5 shrink-0 mt-0.5 ${selectedRole === "facility_admin" ? "text-blue-600" : "text-transparent"}`} />
-                <div>
-                  <div>Yönetici</div>
-                  <div className="text-[10px] text-slate-400 font-normal">Tüm yetkiler</div>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setSelectedRole("facility_specialist")}
-                className={`p-2.5 rounded-xl border text-left flex items-start gap-2 transition ${
-                  selectedRole === "facility_specialist"
-                    ? "bg-blue-50 border-blue-600 text-blue-900 font-semibold"
-                    : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
-                }`}
-              >
-                <CheckCircle2 className={`w-3.5 h-3.5 shrink-0 mt-0.5 ${selectedRole === "facility_specialist" ? "text-blue-600" : "text-transparent"}`} />
-                <div>
-                  <div>Uzman</div>
-                  <div className="text-[10px] text-slate-400 font-normal">Kendi tesisi + Rapor</div>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setSelectedRole("facility_supervisor")}
-                className={`p-2.5 rounded-xl border text-left flex items-start gap-2 transition ${
-                  selectedRole === "facility_supervisor"
-                    ? "bg-blue-50 border-blue-600 text-blue-900 font-semibold"
-                    : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
-                }`}
-              >
-                <CheckCircle2 className={`w-3.5 h-3.5 shrink-0 mt-0.5 ${selectedRole === "facility_supervisor" ? "text-blue-600" : "text-transparent"}`} />
-                <div>
-                  <div>Sorumlu</div>
-                  <div className="text-[10px] text-slate-400 font-normal">Kendi tesisi (Rapor yok)</div>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setSelectedRole("staff")}
-                className={`p-2.5 rounded-xl border text-left flex items-start gap-2 transition ${
-                  selectedRole === "staff"
-                    ? "bg-red-50 border-red-500 text-red-900 font-semibold"
-                    : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
-                }`}
-              >
-                <AlertCircle className={`w-3.5 h-3.5 shrink-0 mt-0.5 ${selectedRole === "staff" ? "text-red-600" : "text-transparent"}`} />
-                <div>
-                  <div>Personel</div>
-                  <div className="text-[10px] text-red-500 font-normal">Web engellenir!</div>
-                </div>
-              </button>
+          {isLogin && (
+            <div className="flex items-center justify-between text-xs pt-1 pb-2">
+              <label className="flex items-center gap-2 cursor-pointer text-slate-600">
+                <input type="checkbox" defaultChecked className="rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+                Beni Hatırla
+              </label>
+              <a href="#" className="text-blue-600 hover:underline font-medium">Şifremi Unuttum?</a>
             </div>
-          </div>
-
-          <div className="flex items-center justify-between text-xs pt-1">
-            <label className="flex items-center gap-2 cursor-pointer text-slate-600">
-              <input type="checkbox" defaultChecked className="rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
-              Beni Hatırla
-            </label>
-            <a href="#" className="text-blue-600 hover:underline font-medium">Şifremi Unuttum?</a>
-          </div>
+          )}
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm rounded-xl shadow-lg shadow-blue-500/25 transition disabled:opacity-50"
+            className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-sm rounded-xl shadow-lg shadow-blue-500/25 transition disabled:opacity-70 mt-4"
           >
-            {loading ? "Giriş yapılıyor..." : "Giriş Yap"}
+            {loading ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                <span>İşleniyor...</span>
+              </>
+            ) : (
+              <span>{isLogin ? "Sisteme Giriş Yap" : "Hesap Oluştur"}</span>
+            )}
           </button>
         </form>
 
-        <div className="mt-6 pt-4 border-t border-slate-100 text-center">
+        <div className="mt-8 pt-5 border-t border-slate-100 text-center">
           <p className="text-[11px] text-slate-400">
-            İdari 360 v1.0 • Supabase Auth & RLS Güvenlik Altyapısı
+            İdari 360 v1.0 • Supabase Güvenlik Altyapısı ile korunmaktadır.
           </p>
         </div>
       </div>
