@@ -142,3 +142,107 @@ export async function sendAuditReminderEmail(payload: AuditReminderPayload) {
     html,
   });
 }
+
+// ─────────────────────────────────────────────────────
+// Termin Yaklaşım Bildirimi
+// ─────────────────────────────────────────────────────
+export interface DeadlineNotificationPayload {
+  toEmail: string;
+  recipientName: string;
+  operationNumber: string;
+  operationTitle: string;
+  facilityName: string;
+  category: string;
+  priority: string;
+  status: string;
+  deadline: string;
+  daysRemaining: number;
+}
+
+const PRIORITY_TR: Record<string, string> = {
+  dusuk: "Düşük", orta: "Orta", yuksek: "Yüksek", acil: "⚠️ ACİL",
+};
+const STATUS_TR: Record<string, string> = {
+  yeni: "Yeni", devam_ediyor: "Devam Ediyor", beklemede: "Beklemede", onayda: "Onayda", tamamlandi: "Tamamlandı",
+};
+
+export async function sendDeadlineNotificationEmail(payload: DeadlineNotificationPayload) {
+  if (!process.env.RESEND_API_KEY || process.env.RESEND_API_KEY === "re_demo_key") {
+    console.log(`[Resend Mock] Deadline notification (${payload.daysRemaining} days) sent to:`, payload.toEmail);
+    return { success: true, mock: true, id: "mock-deadline-001" };
+  }
+
+  const urgencyColor = payload.daysRemaining <= 1 ? "#dc2626" : payload.daysRemaining <= 3 ? "#d97706" : "#2563eb";
+  const urgencyBg = payload.daysRemaining <= 1 ? "#fef2f2" : payload.daysRemaining <= 3 ? "#fffbeb" : "#eff6ff";
+  const urgencyLabel = payload.daysRemaining <= 1 ? "🚨 KRİTİK" : payload.daysRemaining <= 3 ? "⚠️ UYARI" : "ℹ️ BİLGİ";
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f8fafc; padding: 24px; color: #1e293b;">
+        <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; padding: 32px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+          <div style="text-align: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; margin-bottom: 24px;">
+            <div style="font-size: 22px; font-weight: 900; color: #1e293b;">İdari <span style="color: #2563eb;">360</span></div>
+            <div style="font-size: 12px; color: #64748b; margin-top: 4px;">Talep & Onay Termin Bildirimi</div>
+          </div>
+
+          <div style="background: ${urgencyBg}; border: 2px solid ${urgencyColor}; border-radius: 12px; padding: 16px; margin-bottom: 24px;">
+            <div style="font-size: 14px; font-weight: 700; color: ${urgencyColor}; margin-bottom: 4px;">
+              ${urgencyLabel} — Terminine ${payload.daysRemaining} Gün Kaldı
+            </div>
+            <div style="font-size: 12px; color: #475569;">
+              Aşağıdaki talep ${payload.deadline} tarihinde sonuçlanması gerekiyor.
+            </div>
+          </div>
+
+          <p style="font-size: 14px;">Sayın <strong>${payload.recipientName}</strong>,</p>
+
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; margin: 20px 0;">
+            <div style="font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">${payload.operationNumber}</div>
+            <div style="font-size: 16px; font-weight: 700; color: #0f172a; margin-bottom: 12px;">${payload.operationTitle}</div>
+            <table style="width: 100%; font-size: 12px; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 6px 0; color: #64748b; width: 40%;">Tesis</td>
+                <td style="padding: 6px 0; font-weight: 600; color: #0f172a;">${payload.facilityName}</td>
+              </tr>
+              <tr>
+                <td style="padding: 6px 0; color: #64748b;">Kategori</td>
+                <td style="padding: 6px 0; font-weight: 600; color: #0f172a;">${payload.category.charAt(0).toUpperCase() + payload.category.slice(1)}</td>
+              </tr>
+              <tr>
+                <td style="padding: 6px 0; color: #64748b;">Öncelik</td>
+                <td style="padding: 6px 0; font-weight: 600; color: ${payload.priority === "acil" ? "#dc2626" : "#0f172a"};">${PRIORITY_TR[payload.priority] || payload.priority}</td>
+              </tr>
+              <tr>
+                <td style="padding: 6px 0; color: #64748b;">Mevcut Durum</td>
+                <td style="padding: 6px 0; font-weight: 600; color: #0f172a;">${STATUS_TR[payload.status] || payload.status}</td>
+              </tr>
+              <tr>
+                <td style="padding: 6px 0; color: #64748b;">Termin</td>
+                <td style="padding: 6px 0; font-weight: 700; color: ${urgencyColor};">📅 ${payload.deadline}</td>
+              </tr>
+            </table>
+          </div>
+
+          <div style="text-align: center; margin-top: 28px;">
+            <a href="${process.env.NEXT_PUBLIC_APP_URL || "https://idari360.com"}/talepler"
+               style="background: #2563eb; color: #ffffff; padding: 12px 28px; text-decoration: none; border-radius: 10px; font-weight: 700; font-size: 13px; display: inline-block;">
+              Talebi İncele & Güncelle
+            </a>
+          </div>
+
+          <div style="text-align: center; font-size: 11px; color: #94a3b8; margin-top: 32px; border-top: 1px solid #f1f5f9; padding-top: 16px;">
+            İdari 360 Otomatik Termin Bildirim Sistemi • Bu e-posta otomatik olarak gönderilmiştir.
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+
+  return resend.emails.send({
+    from: FROM_EMAIL,
+    to: payload.toEmail,
+    subject: `[${payload.daysRemaining === 1 ? "🚨 BUGÜN" : `${payload.daysRemaining} GÜN`}] Termin: ${payload.operationNumber} — ${payload.operationTitle}`,
+    html,
+  });
+}
